@@ -1,0 +1,201 @@
+Metadata-Version: 2.4
+Name: rig-mesh
+Version: 1.0.0
+Summary: Top-level orchestrator CLI for the RIG Sovereign system — boot, audit, probe, recover.
+Author-email: Mike Rodgers <rodgemd1@gmail.com>
+License: MIT
+Project-URL: Homepage, https://github.com/rodgemd1-lgtm/RIG-Mesh
+Project-URL: Issues, https://github.com/rodgemd1-lgtm/RIG-Mesh/issues
+Project-URL: Source, https://github.com/rodgemd1-lgtm/RIG-Mesh
+Keywords: rig,sovereign,orchestrator,cli,operations,monitoring,launchd
+Classifier: Development Status :: 4 - Beta
+Classifier: Environment :: Console
+Classifier: Intended Audience :: System Administrators
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: MacOS
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: System :: Monitoring
+Classifier: Topic :: System :: Systems Administration
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Provides-Extra: dashboard
+Requires-Dist: fastapi>=0.100; extra == "dashboard"
+Requires-Dist: uvicorn[standard]>=0.20; extra == "dashboard"
+Requires-Dist: starlette>=0.27; extra == "dashboard"
+Provides-Extra: test
+Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: pytest-timeout>=2; extra == "test"
+Provides-Extra: dev
+Requires-Dist: pytest>=7; extra == "dev"
+Requires-Dist: pytest-timeout>=2; extra == "dev"
+Requires-Dist: fastapi>=0.100; extra == "dev"
+Requires-Dist: uvicorn[standard]>=0.20; extra == "dev"
+Requires-Dist: httpx>=0.24; extra == "dev"
+Dynamic: license-file
+
+# RIG Mesh
+
+A top-level orchestrator CLI for the RIG Sovereign system — `boot`, `audit`,
+`probe`, `recover`, `status`. Treats every daemon, service, and library as a
+declarative **Subsystem** with three probe kinds (HTTP / heartbeat / launchd),
+a topological dependency graph, and a uniform verb dispatcher.
+
+Built on Python stdlib only. Optional FastAPI dashboard at `:8091`.
+
+```
+                 ┌──────────────────┐
+                 │   rig-mesh CLI   │
+                 └────────┬─────────┘
+                          │ verbs: status / list / probe / audit / boot / recover
+                ┌─────────▼──────────┐
+                │   CommandRouter    │
+                └─────────┬──────────┘
+                ┌─────────▼──────────┐
+                │     RigMaster      │
+                └─────────┬──────────┘
+       ┌──────────────────┼──────────────────┐
+┌──────▼──────┐    ┌──────▼──────┐    ┌──────▼──────┐
+│ Subsystem   │    │ Audit       │    │ Boot        │
+│ Registry    │    │ Runner      │    │ Runner      │
+└─────────────┘    └─────────────┘    └─────────────┘
+```
+
+## Install
+
+From source:
+```bash
+git clone https://github.com/rodgemd1-lgtm/RIG-Mesh.git
+cd RIG-Mesh
+pip install -e .                    # CLI only
+pip install -e ".[dashboard]"       # CLI + :8091 FastAPI dashboard
+pip install -e ".[dev]"             # everything + tests
+```
+
+Once installed, the `rig-mesh` console script is on your `$PATH`.
+
+## Quickstart
+
+```bash
+# Version
+rig-mesh version
+
+# Probe one subsystem
+rig-mesh probe --name proof-store
+
+# Snapshot every subsystem's current health
+rig-mesh status
+
+# Run a full audit + write JSON + bind a proof if proof_system is reachable
+rig-mesh audit
+
+# Cold-boot every subsystem in topological order
+rig-mesh boot --max-wait-s 10
+
+# Run recovery flows (restart dead daemons + replay blocked queue by default)
+rig-mesh recover --dry-run
+rig-mesh recover                 # actually applies
+rig-mesh recover --flows restart_dead_daemons,replay_blocked_queue
+```
+
+All output is JSON; exit code reflects health (`0` ok / `1` warn or fail).
+
+## Verbs
+
+| Verb | What it does |
+|---|---|
+| `status` | Probe every subsystem, return JSON snapshot with aggregate verdict |
+| `list` | Print every registered subsystem with its declared probes + deps |
+| `probe --name X` | Run a single subsystem's health probe |
+| `audit` | Full audit with artifact write to `<state>/rig-master/audit-*.json` + best-effort proof binding |
+| `boot [--max-wait-s N]` | Cold-boot in topological dependency order; aborts on critical failure |
+| `recover [--flows ...] [--dry-run]` | Run recovery flows: `restart_dead_daemons`, `replay_blocked_queue`, `restore_proof_store_from_backup` |
+| `version` | Print rig_mesh version |
+
+## Configuration
+
+The CLI auto-detects the RIG Sovereign repo root by walking up from its own
+install path looking for a `CLAUDE.md` marker. Override with env vars:
+
+```bash
+export RIG_REPO_ROOT=/path/to/your/Startup-Intelligence-OS
+export RIG_STATE_DIR=/custom/state/dir
+```
+
+For the dashboard, optional auth bypass for local TestClient probes:
+
+```bash
+export RIG_TEST_BYPASS_AUTH=1     # production NEVER sets this
+```
+
+## Dashboard (optional)
+
+```bash
+pip install -e ".[dashboard]"
+python -m uvicorn rig_mesh.dashboard:app --host 127.0.0.1 --port 8091
+open http://127.0.0.1:8091/
+```
+
+Six endpoints:
+- `GET /health` — liveness (always 200)
+- `GET /` — HTML status page, auto-refreshes every 10s
+- `GET /api/status` — JSON snapshot
+- `GET /api/list` — subsystem registry
+- `GET /api/probe/{name}` — single probe
+- `POST /api/audit` / `POST /api/boot` / `POST /api/recover` — mutating
+
+## Subsystem registry
+
+17 canonical subsystems registered out-of-the-box, including:
+
+```
+proof-store           library  critical
+idle-queue            daemon   critical  depends_on=[proof-store]
+cell-watcher          daemon
+healer-daemon         daemon
+rig-247-supervisor    daemon            depends_on=[proof-store, idle-queue]
+monitor-runner        daemon            depends_on=[proof-store]
+meta-monitor          daemon            depends_on=[monitor-runner]
+cockpit-v5            service           depends_on=[proof-store]
+deviation-dashboard   service
+studio-dashboard      service
+progress-board        service
+avis-nps              service
+litellm-mesh-router   service
+backup-runner         daemon
+retention-runner      daemon
+escalation-runner     daemon
+node-worker           daemon
+```
+
+Each declares the most authoritative probe available (HTTP > heartbeat >
+launchd) and its topological dependencies.
+
+## Testing
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+61 tests covering registry, probes, audit aggregation, boot ordering with
+critical-fail abort, recovery flows, router dispatch, CLI argparse, and the
+FastAPI dashboard (auth-bypass aware).
+
+## Design notes
+
+- **stdlib only for the core**. HTTP probes use raw `socket` — no `requests`
+  dep. FastAPI is opt-in via the `dashboard` extra.
+- **No live LLM**. Every check is deterministic. The optional proof-binding
+  reaches into a `proof_system` module if installed; otherwise degrades.
+- **Truth-tracker doctrine**. Probes always report what's actually reachable
+  right now, not what a YAML claims. The CLI's exit code reflects live state.
+- **macOS-first**. `launchctl bootstrap` / `kickstart` for daemon control.
+  Heartbeat and HTTP probes work on any platform.
+
+## License
+
+MIT — see `LICENSE`.

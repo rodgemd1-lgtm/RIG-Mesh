@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rig-mesh"
+version = "1.0.0"
+description = "Top-level orchestrator CLI for the RIG Sovereign system — boot, audit, probe, recover."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "Mike Rodgers", email = "rodgemd1@gmail.com" }]
+keywords = ["rig", "sovereign", "orchestrator", "cli", "operations", "monitoring", "launchd"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Monitoring",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = []   # stdlib only — fastapi + uvicorn are opt-in for the dashboard extra
+
+[project.optional-dependencies]
+dashboard = ["fastapi>=0.100", "uvicorn[standard]>=0.20", "starlette>=0.27"]
+test = ["pytest>=7", "pytest-timeout>=2"]
+dev = ["pytest>=7", "pytest-timeout>=2", "fastapi>=0.100", "uvicorn[standard]>=0.20", "httpx>=0.24"]
+
+[project.urls]
+Homepage = "https://github.com/rodgemd1-lgtm/RIG-Mesh"
+Issues = "https://github.com/rodgemd1-lgtm/RIG-Mesh/issues"
+Source = "https://github.com/rodgemd1-lgtm/RIG-Mesh"
+
+[project.scripts]
+rig-mesh = "rig_mesh.cli:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["rig_mesh*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+pythonpath = ["src"]
