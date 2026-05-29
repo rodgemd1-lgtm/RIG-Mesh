@@ -1,2 +1,0 @@
-[console_scripts]
-rig-mesh = rig_mesh.cli:main
