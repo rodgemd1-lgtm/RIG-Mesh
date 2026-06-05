@@ -46,6 +46,7 @@ def _build_parser() -> argparse.ArgumentParser:
     s_probe = sub.add_parser("probe", help="Probe a single subsystem by name")
     s_probe.add_argument("--name", required=True)
 
+    sub.add_parser("smoke", help="Deterministic local smoke test (no live network calls)")
     sub.add_parser("version", help="Print rig_master version")
 
     return p

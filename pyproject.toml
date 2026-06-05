@@ -28,6 +28,7 @@ dependencies = []   # stdlib only — fastapi + uvicorn are opt-in for the dashb
 
 [project.optional-dependencies]
 dashboard = ["fastapi>=0.100", "uvicorn[standard]>=0.20", "starlette>=0.27"]
+mcp = ["mcp>=1.23.0"]
 test = ["pytest>=7", "pytest-timeout>=2"]
 dev = ["pytest>=7", "pytest-timeout>=2", "fastapi>=0.100", "uvicorn[standard]>=0.20", "httpx>=0.24"]
 
@@ -38,6 +39,7 @@ Source = "https://github.com/rodgemd1-lgtm/RIG-Mesh"
 
 [project.scripts]
 rig-mesh = "rig_mesh.cli:main"
+rig-mesh-mcp = "rig_mesh.mcp_server:serve"
 
 [tool.setuptools]
 package-dir = { "" = "src" }

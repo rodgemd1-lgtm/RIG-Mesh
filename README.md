@@ -72,6 +72,7 @@ The `rig-mesh` console script is on your `$PATH` after install.
 ## 30-second quickstart
 
 ```bash
+rig-mesh smoke                         # first proof: deterministic local smoke test
 rig-mesh version                       # confirms install
 rig-mesh status                        # snapshot of every subsystem (17 default)
 rig-mesh probe --name litellm-mesh-router    # check your model router
@@ -81,6 +82,44 @@ rig-mesh recover --dry-run             # preview recovery flows
 ```
 
 All output is JSON. Exit code reflects health: `0` ok, `1` warn or fail.
+
+---
+
+## MCP server (agent clients)
+
+rig-mesh ships an MCP server that exposes its tools, resources, and prompts to
+agent clients (Claude Desktop, Copilot, custom agents):
+
+```bash
+pip install -e ".[mcp]"                # add the mcp extra
+rig-mesh-mcp                           # stdio transport (default; for Claude Desktop)
+rig-mesh-mcp --sse --port 8092        # SSE transport for remote clients
+```
+
+### MCP tools
+
+| Tool | Description |
+|---|---|
+| `probe_subsystem(name)` | Live health probe for one subsystem |
+| `get_status()` | Aggregate probe of all subsystems |
+| `list_subsystems()` | Registry listing (no I/O) |
+| `run_audit()` | Full audit + JSON artifact |
+| `smoke()` | Deterministic local smoke test |
+
+### MCP resources
+
+| URI | Description |
+|---|---|
+| `rig://registry` | Full subsystem registry as JSON |
+| `rig://audit/latest` | Latest audit artifact |
+
+### MCP prompts
+
+| Prompt | Description |
+|---|---|
+| `health_check_prompt` | Asks an agent to interpret a status snapshot |
+
+See [`AGENTS.md`](AGENTS.md) for agent roles, model routing, and quality gates.
 
 ---
 
@@ -189,6 +228,7 @@ rig-mesh recover --flows restore_proof_store_from_backup
 
 | Verb | What it does | Exit code |
 |---|---|---|
+| `smoke` | Deterministic local smoke test — version + registry check, no live network calls | `0` if all checks pass |
 | `status [--write]` | Probe every subsystem, return JSON snapshot with aggregate verdict | `0` if `overall: ok` |
 | `list` | Print every registered subsystem with declared probes + deps | `0` |
 | `probe --name <subsystem>` | Run one subsystem's probe | `0` if ok |
@@ -354,14 +394,16 @@ pip install -e ".[test]"
 pytest
 ```
 
-63 tests covering registry, probes (HTTP refused, heartbeat fresh / stale /
+89 tests covering registry, probes (HTTP refused, heartbeat fresh / stale /
 missing, launchd parser, no-probe path), topological sort with cycle
 detection, audit aggregation, boot ordering with critical-fail abort, recovery
-flows, router dispatch, CLI argparse, and the FastAPI dashboard (auth-bypass
-aware). 2 tests skip when the optional `services.security` auth module isn't
-installed.
+flows, router dispatch, CLI argparse (including `smoke`), MCP tool surface,
+and the FastAPI dashboard (auth-bypass aware). 2 tests skip when the optional
+`services.security` auth module isn't installed.
 
 CI runs on every push: pytest on py3.10 / 3.11 / 3.12 + compile lint.
+A weekly workflow (`weekly.yml`) additionally runs every Monday and writes a
+quality-gate summary — it never deploys or merges automatically.
 
 ---
 

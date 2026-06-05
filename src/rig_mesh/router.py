@@ -32,6 +32,7 @@ class CommandRouter:
             "boot",
             "recover",
             "probe",
+            "smoke",
             "version",
         ]
 
@@ -90,6 +91,24 @@ class CommandRouter:
     def _verb_version(self, args: dict) -> dict:
         from . import __version__
         return {"ok": True, "verb": "version", "rig_master": __version__}
+
+    def _verb_smoke(self, args: dict) -> dict:
+        """Deterministic local smoke: version + list — no live network calls."""
+        from . import __version__
+        subs = self._master.list_subsystems()
+        checks = {
+            "version_ok": bool(__version__),
+            "registry_populated": len(subs) > 0,
+            "subsystem_count": len(subs),
+        }
+        passed = all(v for v in checks.values() if isinstance(v, bool))
+        return {
+            "ok": passed,
+            "verb": "smoke",
+            "rig_master": __version__,
+            "checks": checks,
+            "result": "PASS" if passed else "FAIL",
+        }
 
 
 __all__ = ["CommandRouter"]
